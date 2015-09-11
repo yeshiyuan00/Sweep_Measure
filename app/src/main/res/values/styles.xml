@@ -25,4 +25,9 @@
         <item name="android:textColor">@color/gray</item>
         <item name="android:gravity">center_vertical</item>
     </style>
+
+    <style name="mDialog" parent="@style/Widget">
+        <item name="android:background">@color/white</item>
+    </style>
+
 </resources>

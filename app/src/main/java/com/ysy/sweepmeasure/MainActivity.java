@@ -2,6 +2,7 @@ package com.ysy.sweepmeasure;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.ProgressDialog;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -20,7 +21,6 @@ import android.view.View;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.Toast;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Legend;
@@ -32,15 +32,21 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.utils.ColorTemplate;
 import com.ysy.sweepmeasure.helper.SettingHelper;
 import com.ysy.sweepmeasure.sweep.Sweep;
+import com.ysy.sweepmeasure.task.CalcuRunnable;
 import com.ysy.sweepmeasure.task.GenerateTask;
+import com.ysy.sweepmeasure.task.PlayRunnable;
+import com.ysy.sweepmeasure.task.RecordRunnable;
+import com.ysy.sweepmeasure.task.RecordTask;
+import com.ysy.sweepmeasure.util.ByteUtil;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends Activity {
     private Button btn_generate, btn_record, btn_calculate;
@@ -49,18 +55,23 @@ public class MainActivity extends Activity {
     private AudioRecord mAudioRecord;
     private int BuffSize, recBuffSize;
     private short[] PlayBuff;
+    RecordTask recordTask;
+    private RecordRunnable recordRunnable;
     private final String FILEDIR = Environment.getExternalStorageDirectory()
             + "/sweep";
     private final String FILEPATH = Environment.getExternalStorageDirectory()
             + "/sweep/test.txt";
+    private final String FILEDCPATH = Environment.getExternalStorageDirectory()
+            + "/sweep/deconv.txt";
 
     private int fs, f1, f2, A;
     private double T;
 
     ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor();
     ExecutorService cachedThreadPool = Executors.newCachedThreadPool();
-    ExecutorService fixedThreadPool = Executors.newFixedThreadPool(1);
-    FileOutputStream fos = null;
+    ScheduledExecutorService scheduledThreadPool = Executors.newScheduledThreadPool(2);
+    FileOutputStream fos = null;     //存储生成的扫频信号
+    FileOutputStream fosDc = null;  //存储反卷积信号
 
     private final int CLEARVALUE = 0x01;
 
@@ -103,9 +114,9 @@ public class MainActivity extends Activity {
         mAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, fs,
                 AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
                 BuffSize, AudioTrack.MODE_STREAM);
-        recBuffSize = AudioRecord.getMinBufferSize(fs, AudioFormat.CHANNEL_OUT_MONO,
+        recBuffSize = AudioRecord.getMinBufferSize(fs, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT);
-        mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, fs, AudioFormat.CHANNEL_OUT_MONO,
+        mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, fs, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, recBuffSize);
     }
 
@@ -265,21 +276,26 @@ public class MainActivity extends Activity {
     }
 
     private class BtnClickListener implements View.OnClickListener {
+
         @Override
         public void onClick(View v) {
             switch (v.getId()) {
                 case R.id.btn_generate:
+
                     GenerateWave();
+
                     break;
                 case R.id.btn_record:
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            PlayAndRecord();
-                        }
-                    }).start();
+                    recordRunnable = new RecordRunnable(mAudioRecord, recBuffSize);
+                    scheduledThreadPool.schedule(recordRunnable, 0, TimeUnit.MILLISECONDS);
+                    //playbackTask.execute();
+                    scheduledThreadPool.schedule(new PlayRunnable(MainActivity.this, mAudioTrack,
+                            FILEPATH, BuffSize, recordRunnable), 2, TimeUnit.SECONDS);
+                    //
                     break;
                 case R.id.btn_calculate:
+                    //recordRunnable.stopRecord();
+                    scheduledThreadPool.schedule(new CalcuRunnable(), 0, TimeUnit.MILLISECONDS);
                     break;
             }
         }
@@ -288,6 +304,7 @@ public class MainActivity extends Activity {
     private void addEntry(double input) {
 
         LineData data = chart_sweep.getData();
+
 
         if (data != null) {
 
@@ -347,6 +364,12 @@ public class MainActivity extends Activity {
         if (file.exists()) {
             file.delete();
         }
+
+        File fileDc = new File(FILEDCPATH);
+        if (fileDc.exists()) {
+            fileDc.delete();
+        }
+
         if (fos != null) {
             try {
                 fos.close();
@@ -361,8 +384,22 @@ public class MainActivity extends Activity {
             e.printStackTrace();
         }
 
+        if (fosDc != null) {
+            try {
+                fosDc.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        try {
+            fosDc = new FileOutputStream(fileDc);// 建立一个可存取字节的文件
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
         View view = getLayoutInflater().inflate(R.layout.dialog_param, null);
-        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
         builder.setTitle(R.string.parameter_setting)
                 .setView(view);
         final EditText edt_fs = (EditText) view.findViewById(R.id.edt_fs);
@@ -397,7 +434,7 @@ public class MainActivity extends Activity {
                         BuffSize, AudioTrack.MODE_STREAM);
 
                 mAudioRecord = null;
-                mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, fs, AudioFormat.CHANNEL_OUT_MONO,
+                mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, fs, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT, recBuffSize);
 
                 final Sweep sweep = new Sweep(fs, f1, f2, T, A);
@@ -432,10 +469,31 @@ public class MainActivity extends Activity {
                             }
                         }
                     }
-                });
-                GenerateTask task = new GenerateTask(sweep, chart_sweep);
-                task.execute();
 
+                    @Override
+                    public void deconvData(double data) {
+
+                        byte[] temp = new byte[8];
+                        temp = ByteUtil.doubleToBytes(data);
+                        if (fosDc != null) {
+                            try {
+                                fosDc.write(temp, 0, 8);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                });
+
+                ProgressDialog dialog1 = new ProgressDialog(MainActivity.this);
+                dialog1.setMessage(getResources().getString(R.string.generating));
+                dialog1.setCanceledOnTouchOutside(false);
+                dialog1.setCancelable(false);
+
+                dialog1.show();
+
+                GenerateTask task = new GenerateTask(sweep, chart_sweep, dialog1);
+                task.execute();
             }
         });
         builder.setNegativeButton("Cancel", null);
@@ -443,79 +501,20 @@ public class MainActivity extends Activity {
 
     }
 
-    private void PlayAndRecord() {
-        File file = new File(FILEPATH);
-        if (!file.exists()) {
-            Toast.makeText(MainActivity.this, R.string.please_generate, Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        FileInputStream fis = null;
-        try {
-            fis = new FileInputStream(file);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        mAudioTrack.play();
-        byte[] playbyte = new byte[(BuffSize / 4) * 2];
-        if (fis != null) {
-            try {
-                while (fis.read(playbyte, 0, playbyte.length) != -1) {
-
-                    for (int i = 0; i < playbyte.length / 2; i++) {
-                        PlayBuff[i] = (short) (((playbyte[2 * i] & 0xff) << 8) | (playbyte[i * 2 + 1] & 0xff));
-                    }
-                    mAudioTrack.write(PlayBuff, 0, PlayBuff.length);
-
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        if (fis != null) {
-            try {
-                fis.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        //mAudioTrack.pause();
-    }
-
-    public static byte[] DoubleToArray(double Value) {
-        long accum = Double.doubleToRawLongBits(Value);
-        byte[] byteRet = new byte[8];
-        byteRet[0] = (byte) (accum & 0xFF);
-        byteRet[1] = (byte) ((accum >> 8) & 0xFF);
-        byteRet[2] = (byte) ((accum >> 16) & 0xFF);
-        byteRet[3] = (byte) ((accum >> 24) & 0xFF);
-        byteRet[4] = (byte) ((accum >> 32) & 0xFF);
-        byteRet[5] = (byte) ((accum >> 40) & 0xFF);
-        byteRet[6] = (byte) ((accum >> 48) & 0xFF);
-        byteRet[7] = (byte) ((accum >> 56) & 0xFF);
-        return byteRet;
-    }
-
-    private static double ArryToDouble(byte[] Array, int Pos) {
-        long accum = 0;
-        accum = Array[Pos + 0] & 0xFF;
-        accum |= (long) (Array[Pos + 1] & 0xFF) << 8;
-        accum |= (long) (Array[Pos + 2] & 0xFF) << 16;
-        accum |= (long) (Array[Pos + 3] & 0xFF) << 24;
-        accum |= (long) (Array[Pos + 4] & 0xFF) << 32;
-        accum |= (long) (Array[Pos + 5] & 0xFF) << 40;
-        accum |= (long) (Array[Pos + 6] & 0xFF) << 48;
-        accum |= (long) (Array[Pos + 7] & 0xFF) << 56;
-        return Double.longBitsToDouble(accum);
-    }
 
     @Override
     protected void onDestroy() {
         if (fos != null) {
             try {
                 fos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (fosDc != null) {
+            try {
+                fosDc.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
