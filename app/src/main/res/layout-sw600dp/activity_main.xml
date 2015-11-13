@@ -29,7 +29,7 @@
             <Button
                 android:id="@+id/btn_generate"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="80dp"
                 android:layout_gravity="center"
                 android:background="@color/colorPrimary"
                 android:gravity="center"
@@ -45,7 +45,7 @@
             <Button
                 android:id="@+id/btn_record"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="80dp"
                 android:layout_gravity="center"
                 android:background="@color/colorPrimary"
                 android:gravity="center"
@@ -61,7 +61,7 @@
             <Button
                 android:id="@+id/btn_calculate"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
+                android:layout_height="80dp"
                 android:layout_gravity="center"
                 android:background="@color/colorPrimary"
                 android:gravity="center"

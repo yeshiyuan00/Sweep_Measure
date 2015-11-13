@@ -62,13 +62,22 @@ public class CalcuRunnable implements Runnable {
             }
         }
 
-        for (int i = 0; i < Drecord.length; i++) {
-            short temp = (short) (((record[2 * i+1] & 0xff) << 8) | (record[2 * i] & 0xff));
+        /**
+         * 读出录音信号
+         * */
+        for (int i = 0, length = record.length / 2; i < length; i++) {
+            short temp = (short) (((record[2 * i + 1] & 0xff) << 8) | (record[2 * i] & 0xff));
 
             Drecord[i] = temp / 32767.0;
         }
+        for (int i = record.length / 2; i < Drecord.length; i++) {
+            Drecord[i] = 0.0;
+        }
 
-        for (int i = 0; i < Ddeconv.length; i++) {
+        /**
+         * 读出反卷积信号
+         * */
+        for (int i = 0, length = deconv.length / 8; i < length; i++) {
             byte[] temp = new byte[8];
             for (int j = 0; j < 8; j++) {
                 temp[j] = deconv[8 * i + j];
@@ -78,6 +87,10 @@ public class CalcuRunnable implements Runnable {
                 Log.e("Test", "Ddeconv[" + i + "]=" + Ddeconv[i]);
             }
         }
+        for (int i = deconv.length / 8; i < Ddeconv.length; i++) {
+            Ddeconv[i] = 0.0;
+        }
+
         convs.setDataListener(new Convs.SaveDataListener() {
             @Override
             public void savedata(double data) {
@@ -91,7 +104,11 @@ public class CalcuRunnable implements Runnable {
             }
         });
 
-        convs.convols(Ddeconv, Drecord, DBuffC, Ddeconv.length, Drecord.length);
+        //convs.convols(Ddeconv, Drecord, DBuffC, Ddeconv.length, Drecord.length);
+        long time = System.currentTimeMillis();
+        convs.convols(Ddeconv, Drecord);
+        Log.e("Test:", "sumtime=" + (System.currentTimeMillis() - time));
+
 
         if (fosBc != null) {
             try {
@@ -109,8 +126,12 @@ public class CalcuRunnable implements Runnable {
         fileBc = new File(FilePath.BUFCPATH);
         record = new byte[(int) fileRe.length()];
         deconv = new byte[(int) fileDc.length()];
-        Drecord = new double[record.length / 2];
-        Ddeconv = new double[deconv.length / 8];
+        int lx = record.length / 2;
+        int ly = deconv.length / 8;
+        int lz = (int) Math.pow(2, Math.ceil(Math.log(lx + ly - 1) / Math.log(2)));
+
+        Drecord = new double[lz];
+        Ddeconv = new double[lz];
         DBuffC = new double[Drecord.length + Ddeconv.length - 1];
 
         if (fisDc != null) {
@@ -142,18 +163,5 @@ public class CalcuRunnable implements Runnable {
             e.printStackTrace();
         }
 
-        if (fosBc != null) {
-            try {
-                fosBc.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        try {
-            fosBc = new FileOutputStream(fileBc);// 建立一个可存取字节的文件
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
     }
 }

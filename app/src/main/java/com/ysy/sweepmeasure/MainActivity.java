@@ -1,6 +1,5 @@
 package com.ysy.sweepmeasure;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.DialogInterface;
@@ -15,10 +14,10 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
 import android.widget.Button;
 import android.widget.EditText;
 
@@ -48,7 +47,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
     private Button btn_generate, btn_record, btn_calculate;
     private LineChart chart_sweep, chart_record;
     private AudioTrack mAudioTrack;
@@ -73,6 +72,7 @@ public class MainActivity extends Activity {
     FileOutputStream fos = null;     //存储生成的扫频信号
     FileOutputStream fosDc = null;  //存储反卷积信号
 
+
     private final int CLEARVALUE = 0x01;
 
     private Handler handler = new Handler() {
@@ -91,8 +91,9 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
 //        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
 //                WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
+//        requestWindowFeature(Window.FEATURE_NO_TITLE);
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_main);
         FindViewById();
         SetListener();

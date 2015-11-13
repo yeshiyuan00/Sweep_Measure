@@ -18,4 +18,8 @@
     <color name="transparent_bg">#88838B8B</color>
     <color name="CYAN">#FF00FFFF</color>
 
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+
 </resources>

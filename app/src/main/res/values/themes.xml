@@ -2,18 +2,20 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
 
     <style name="myTheme" parent="Theme.AppCompat.Light">
-        <!-- <item name="android:windowBackground">@drawable/start</item> -->
-        <item name="android:windowFullscreen">false</item>
-        <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowTitleSize">55dip</item>
+        <item name="colorPrimary">@color/colorPrimary</item>
 
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+
+        <item name="android:windowTitleBackgroundStyle">@style/mTitleStyle</item>
+        <item name="android:windowTitleSize">55dip</item>
         <item name="android:buttonStyle">@style/mButtonWhite</item>
         <item name="android:editTextStyle">@style/mEditText</item>
         <item name="android:alertDialogStyle">@style/mDialog</item>
-
         <item name="android:scrollbarSize">15dip</item>
+    </style>
 
+    <style name="mTitleStyle">
+        <item name="android:background">#000000</item>
     </style>
 
 </resources>
