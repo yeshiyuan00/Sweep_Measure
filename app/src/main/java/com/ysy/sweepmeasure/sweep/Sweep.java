@@ -1,7 +1,5 @@
 package com.ysy.sweepmeasure.sweep;
 
-import android.util.Log;
-
 /**
  * User: ysy
  * Date: 2015/8/19
@@ -95,9 +93,6 @@ public class Sweep {
         }
         for (int i = 0; i < t; i++) {
             y[i] = x[t - i - 1] * G[i] / 32767.0;
-            if (i < 300) {
-                Log.e("Test", "y[" + i + "]=" + y[i]);
-            }
             dataListener.deconvData(y[i]);
         }
     }

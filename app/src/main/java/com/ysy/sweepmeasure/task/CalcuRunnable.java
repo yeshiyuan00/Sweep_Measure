@@ -1,5 +1,6 @@
 package com.ysy.sweepmeasure.task;
 
+import android.app.ProgressDialog;
 import android.util.Log;
 
 import com.ysy.sweepmeasure.file.FilePath;
@@ -30,10 +31,12 @@ public class CalcuRunnable implements Runnable {
     private double[] DBuffC = null;
 
     private Convs convs;
+    private ProgressDialog dialog;
 
-    public CalcuRunnable() {
+    public CalcuRunnable(ProgressDialog dialog) {
         initFis();
         convs = new Convs();
+        this.dialog = dialog;
     }
 
 
@@ -117,6 +120,7 @@ public class CalcuRunnable implements Runnable {
                 e.printStackTrace();
             }
         }
+        dialog.dismiss();
     }
 
 

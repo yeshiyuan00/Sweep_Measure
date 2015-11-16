@@ -1,5 +1,6 @@
 package com.ysy.sweepmeasure.task;
 
+import android.app.ProgressDialog;
 import android.media.AudioRecord;
 import android.os.Environment;
 
@@ -20,15 +21,18 @@ public class RecordRunnable implements Runnable {
     private AudioRecord mAudioRecord;
     private int recBuffsize;
     private boolean isRecording;
+    private ProgressDialog dialog;
 
-    public RecordRunnable(AudioRecord mAudioRecord, int recBuffsize) {
+    public RecordRunnable(AudioRecord mAudioRecord, int recBuffsize, ProgressDialog dialog) {
         this.mAudioRecord = mAudioRecord;
         this.recBuffsize = recBuffsize;
         isRecording = true;
+        this.dialog = dialog;
     }
 
     public void stopRecord() {
         isRecording = false;
+        dialog.dismiss();
     }
 
     @Override

@@ -9,5 +9,7 @@
     <string name="parameter_setting">参数设置</string>
     <string name="please_setting">请设置参数</string>
     <string name="please_generate">请先生成扫频信号</string>
-    <string name="generating">正在生成信号</string>
+    <string name="generating">正在生成信号...</string>
+    <string name="Recording">正在录音...</string>
+    <string name="Calculating">正在计算...</string>
 </resources>

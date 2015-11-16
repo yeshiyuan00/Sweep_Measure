@@ -15,9 +15,9 @@ public class GenerateTask extends AsyncTask {
     private LineChart chart_sweep;
     private ProgressDialog dialog1;
 
-    public GenerateTask(Sweep sweep, LineChart chart_sweep, ProgressDialog dialog1) {
+    public GenerateTask(Sweep sweep, ProgressDialog dialog1) {
         this.sweep = sweep;
-        this.chart_sweep = chart_sweep;
+        //this.chart_sweep = chart_sweep;
         this.dialog1 = dialog1;
     }
 
