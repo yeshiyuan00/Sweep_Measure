@@ -26,27 +26,28 @@ public class Convs {
         this.dataListener = dataListener;
     }
 
-    public void convols(double[] BufX, double[] BufY) {
+    public void convols(double[] Ddeconv, double[] Drecord) {
 
 
-        int lz = BufX.length;
 
-        FFT.rfft(BufX, lz);
-        FFT.rfft(BufY, lz);
+        int lz = Ddeconv.length;
+
+        FFT.rfft(Ddeconv, lz);
+        FFT.rfft(Drecord, lz);
 
         int len = lz / 2;
         double t;
 
-        BufX[0] = BufX[0] * BufY[0];
-        BufX[len] = BufX[len] * BufY[len];
+        Ddeconv[0] = Ddeconv[0] * Drecord[0];
+        Ddeconv[len] = Ddeconv[len] * Drecord[len];
 
         for (int i = 1; i < len; i++) {
-            t = BufX[i] * BufY[i] - BufX[lz - i] * BufY[lz - i];
-            BufX[lz - i] = BufX[i] * BufY[lz - i] + BufX[lz - i] * BufY[i];
-            BufX[i] = t;
+            t = Ddeconv[i] * Drecord[i] - Ddeconv[lz - i] * Drecord[lz - i];
+            Ddeconv[lz - i] = Ddeconv[i] * Drecord[lz - i] + Ddeconv[lz - i] * Drecord[i];
+            Ddeconv[i] = t;
         }
 
-        FFT.irfft(BufX, lz);
+        FFT.irfft(Ddeconv, lz);
 
         File fileBc = new File(FilePath.BUFCPATH);
         FileOutputStream fosBc = null;
@@ -68,7 +69,7 @@ public class Convs {
         byte[] Byte_C = new byte[lz * 8];
         for (int i = 0; i < lz; i++) {
             byte[] temp = new byte[8];
-            temp = ByteUtil.doubleToBytes(BufX[i]);
+            temp = ByteUtil.doubleToBytes(Ddeconv[i]);
             System.arraycopy(temp, 0, Byte_C, i * 8, 8);
 
         }

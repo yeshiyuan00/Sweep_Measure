@@ -29,14 +29,16 @@ public class CalcuRunnable implements Runnable {
     private double[] Drecord = null;
     private double[] Ddeconv = null;
     private double[] DBuffC = null;
+    private double[] IMPD = null;
 
     private Convs convs;
     private ProgressDialog dialog;
 
-    public CalcuRunnable(ProgressDialog dialog) {
+    public CalcuRunnable(ProgressDialog dialog, double[] IMPD) {
         initFis();
         convs = new Convs();
         this.dialog = dialog;
+        this.IMPD = IMPD;
     }
 
 
@@ -70,7 +72,6 @@ public class CalcuRunnable implements Runnable {
          * */
         for (int i = 0, length = record.length / 2; i < length; i++) {
             short temp = (short) (((record[2 * i + 1] & 0xff) << 8) | (record[2 * i] & 0xff));
-
             Drecord[i] = temp / 32767.0;
         }
         for (int i = record.length / 2; i < Drecord.length; i++) {
@@ -112,7 +113,6 @@ public class CalcuRunnable implements Runnable {
         convs.convols(Ddeconv, Drecord);
         Log.e("Test:", "sumtime=" + (System.currentTimeMillis() - time));
 
-
         if (fosBc != null) {
             try {
                 fosBc.close();
@@ -125,7 +125,7 @@ public class CalcuRunnable implements Runnable {
 
 
     private void initFis() {
-        fileDc = new File(FilePath.FILEDCPATH);
+        fileDc = new File(FilePath.HINV0PATH);
         fileRe = new File(FilePath.RECORDPATH);
         fileBc = new File(FilePath.BUFCPATH);
         record = new byte[(int) fileRe.length()];
@@ -134,8 +134,8 @@ public class CalcuRunnable implements Runnable {
         int ly = deconv.length / 8;
         int lz = (int) Math.pow(2, Math.ceil(Math.log(lx + ly - 1) / Math.log(2)));
 
-        Drecord = new double[lz];
-        Ddeconv = new double[lz];
+        Drecord = new double[lx];
+        Ddeconv = new double[ly];
         DBuffC = new double[Drecord.length + Ddeconv.length - 1];
 
         if (fisDc != null) {

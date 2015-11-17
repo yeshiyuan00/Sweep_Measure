@@ -1,5 +1,9 @@
 package com.ysy.sweepmeasure.sweep;
 
+import com.ysy.sweepmeasure.util.FFT;
+
+import java.util.Arrays;
+
 /**
  * User: ysy
  * Date: 2015/8/19
@@ -11,25 +15,29 @@ public class Sweep {
     private int f2;
     private double T;
     private int A;
+    private double[] hinvmic;
 
     private DataListener dataListener;
 
     public interface DataListener {
-        void dataChange(double data);
+        void dataChange(double[] data);
 
-        void deconvData(double data);
+        void deconvData(double[] data);
+
+        void hinv0Data(double[] data);
     }
 
     public void setDataListener(DataListener dataListener) {
         this.dataListener = dataListener;
     }
 
-    public Sweep(int fs, int f1, int f2, double T, int A) {
+    public Sweep(int fs, int f1, int f2, double T, int A, double[] hinvmic) {
         this.fs = fs;
         this.f1 = f1;
         this.f2 = f2;
         this.T = T;
         this.A = A;
+        this.hinvmic = hinvmic;
     }
 
     public void setFs(int fs) {
@@ -76,6 +84,8 @@ public class Sweep {
         final int t = (int) (fs * T);
         double[] x0 = new double[t];
         double[] G = new double[t];
+        System.out.println("hinvmic.length=" + hinvmic.length);
+        double[] hinv0 = new double[hinvmic.length + t - 1];
         double ti, xmax = 0.0;
         for (int i = 0; i < t; i++) {
             ti = (double) i / (double) fs;
@@ -89,11 +99,77 @@ public class Sweep {
 
         for (int i = 0; i < t; i++) {
             x[i] = x0[i] * A / (xmax);
-            dataListener.dataChange(x[i]);
         }
         for (int i = 0; i < t; i++) {
             y[i] = x[t - i - 1] * G[i] / 32767.0;
-            dataListener.deconvData(y[i]);
+
         }
+        hinv0 = OverlapSaveConv(y, 1024);
+        if (dataListener != null) {
+            dataListener.dataChange(x);
+            dataListener.deconvData(y);
+            dataListener.hinv0Data(hinv0);
+        }
+    }
+
+    private double[] OverlapSaveConv(double[] x, int L) {
+        int Lh = hinvmic.length;
+        int Lx = x.length;
+        int Ly = Lh + Lx - 1;
+        int Lt = Lh - 1 + L;
+        int NFFT = (int) Math.pow(2,
+                Math.ceil(Math.log10(Math.max((double) Lh, Lh - 1 + L)) / Math.log10(2.0)));
+        int len2 = NFFT / 2;
+        int Fn = (int) Math.floor((double) Ly / L);
+        int delNx = Lx - Fn * L;
+        int delNy = Ly - Fn * L;
+
+        double t;
+        double[] ht = new double[NFFT];
+        double[] yt = new double[NFFT];
+        double[] temp = new double[Lt];
+        double[] y = new double[Ly];
+        Arrays.fill(ht, 0.0);
+        Arrays.fill(yt, 0.0);
+        Arrays.fill(temp, 0.0);
+        Arrays.fill(y, 0.0);
+        System.arraycopy(x, 0, y, 0, Lx);
+        System.arraycopy(hinvmic, 0, ht, 0, Lh);
+        FFT.rfft(ht, NFFT);
+        for (int i = 0; i < Fn; i++) {
+            System.arraycopy(y, i * L, temp, Lh - 1, L);
+            System.arraycopy(temp, 0, yt, 0, Lt);
+            FFT.rfft(yt, NFFT);
+            yt[0] = yt[0] * ht[0];
+            yt[len2] = yt[len2] * ht[len2];
+            for (int j = 1; j < len2; j++) {
+                t = yt[j] * ht[j] - yt[NFFT - j] * ht[NFFT - j];
+                yt[NFFT - j] = yt[j] * ht[NFFT - j] + yt[NFFT - j] * ht[j];
+                yt[j] = t;
+            }
+            FFT.irfft(yt, NFFT);
+            System.arraycopy(yt, Lh - 1, y, i * L, L);
+            Arrays.fill(yt, 0.0);
+            System.arraycopy(temp, L, temp, 0, Lh - 1);
+        }
+        if (delNy > 0) {
+            if (delNx > 0) {
+                System.arraycopy(y, Fn * L, temp, Lh - 1, delNx);
+                System.arraycopy(temp, 0, yt, 0, Lh - 1 + delNx);
+            } else {
+                System.arraycopy(temp, 0, yt, 0, Lh - 1);
+            }
+            FFT.rfft(yt, NFFT);
+            yt[0] = yt[0] * ht[0];
+            yt[len2] = yt[len2] * ht[len2];
+            for (int j = 1; j < len2; j++) {
+                t = yt[j] * ht[j] - yt[NFFT - j] * ht[NFFT - j];
+                yt[NFFT - j] = yt[j] * ht[NFFT - j] + yt[NFFT - j] * ht[j];
+                yt[j] = t;
+            }
+            FFT.irfft(yt, NFFT);
+            System.arraycopy(yt, Lh - 1, y, Fn * L, delNy);
+        }
+        return y;
     }
 }

@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,6 +56,11 @@ public class MainActivity extends AppCompatActivity {
     private final String FILEDCPATH = Environment.getExternalStorageDirectory()
             + "/sweep/deconv.txt";
 
+    private final String HINV0PATH = Environment.getExternalStorageDirectory()
+            + "/sweep/hinv0.txt";
+    private static final String HINVMIC_NAME = "hinvmic.txt";
+    private static final String IMPD_NAME = "impd.txt";
+
     private int fs, f1, f2, A;
     private double T;
 
@@ -63,9 +69,10 @@ public class MainActivity extends AppCompatActivity {
     ScheduledExecutorService scheduledThreadPool = Executors.newScheduledThreadPool(2);
     FileOutputStream fos = null;     //存储生成的扫频信号
     FileOutputStream fosDc = null;  //存储反卷积信号
-
+    FileOutputStream foshiv = null;  //存储hinv0
 
     private final int CLEARVALUE = 0x01;
+    private double[] impd;
 
 
     @Override
@@ -101,7 +108,6 @@ public class MainActivity extends AppCompatActivity {
         mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, fs, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT, recBuffSize);
     }
-
 
 
     private void SetListener() {
@@ -170,11 +176,13 @@ public class MainActivity extends AppCompatActivity {
                     dialog2.setCanceledOnTouchOutside(false);
                     dialog2.setCancelable(false);
                     dialog2.show();
-                    scheduledThreadPool.schedule(new CalcuRunnable(dialog2), 0, TimeUnit.MILLISECONDS);
+                    impd = Read_Accesset(512, IMPD_NAME);
+                    scheduledThreadPool.schedule(new CalcuRunnable(dialog2,impd), 0, TimeUnit.MILLISECONDS);
                     break;
             }
         }
     }
+
 
 //    private void addEntry(double input) {
 //
@@ -245,6 +253,11 @@ public class MainActivity extends AppCompatActivity {
             fileDc.delete();
         }
 
+        File filehiv0 = new File(HINV0PATH);
+        if (filehiv0.exists()) {
+            filehiv0.delete();
+        }
+
         if (fos != null) {
             try {
                 fos.close();
@@ -269,6 +282,20 @@ public class MainActivity extends AppCompatActivity {
 
         try {
             fosDc = new FileOutputStream(fileDc);// 建立一个可存取字节的文件
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        if (foshiv != null) {
+            try {
+                foshiv.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        try {
+            foshiv = new FileOutputStream(filehiv0);// 建立一个可存取字节的文件
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
@@ -311,21 +338,28 @@ public class MainActivity extends AppCompatActivity {
                 mAudioRecord = null;
                 mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, fs, AudioFormat.CHANNEL_IN_MONO,
                         AudioFormat.ENCODING_PCM_16BIT, recBuffSize);
-
-                final Sweep sweep = new Sweep(fs, f1, f2, T, A);
+                double[] hinvmic = new double[1024];
+                hinvmic = Read_Accesset(1024, HINVMIC_NAME);
+                final Sweep sweep = new Sweep(fs, f1, f2, T, A, hinvmic);
                 sweep.setDataListener(new Sweep.DataListener() {
 
                     @Override
-                    public void dataChange(double data) {
+                    public void dataChange(double[] data) {
 
                         //System.out.println("data[" + (j) + "]=" + data);
                         byte[] temp = new byte[2];
-                        short temp1 = (short) data;
-                        temp[0] = (byte) (temp1 >> 8);
-                        temp[1] = (byte) (temp1);
+                        byte[] data_byte = new byte[data.length * 2];
+                        for (int i = 0, lh = data.length; i < lh; i++) {
+                            short temp1 = (short) data[i];
+                            temp[0] = (byte) (temp1 >> 8);
+                            temp[1] = (byte) (temp1);
+                            data_byte[2 * i] = temp[0];
+                            data_byte[2 * i + 1] = temp[1];
+                        }
+
                         if (fos != null) {
                             try {
-                                fos.write(temp, 0, 2);
+                                fos.write(data_byte, 0, data_byte.length);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
@@ -333,13 +367,33 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     @Override
-                    public void deconvData(double data) {
-
+                    public void deconvData(double[] data) {
                         byte[] temp = new byte[8];
-                        temp = ByteUtil.doubleToBytes(data);
+                        byte[] data_byte = new byte[data.length * 8];
+                        for (int i = 0, lh = data.length; i < lh; i++) {
+                            temp = ByteUtil.doubleToBytes(data[i]);
+                            System.arraycopy(temp, 0, data_byte, 8 * i, 8);
+                        }
                         if (fosDc != null) {
                             try {
-                                fosDc.write(temp, 0, 8);
+                                fosDc.write(data_byte, 0, data_byte.length);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void hinv0Data(double[] data) {
+                        byte[] data_byte = new byte[data.length * 8];
+                        byte[] temp = new byte[8];
+                        for (int i = 0, lh = data.length; i < lh; i++) {
+                            temp = ByteUtil.doubleToBytes(data[i]);
+                            System.arraycopy(temp, 0, data_byte, 8 * i, 8);
+                        }
+                        if (foshiv != null) {
+                            try {
+                                foshiv.write(data_byte, 0, data_byte.length);
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
@@ -354,7 +408,7 @@ public class MainActivity extends AppCompatActivity {
 
                 dialog1.show();
 
-                GenerateTask task = new GenerateTask(sweep,dialog1);
+                GenerateTask task = new GenerateTask(sweep, dialog1);
                 task.execute();
             }
         });
@@ -381,6 +435,14 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
+
+        if (foshiv != null) {
+            try {
+                foshiv.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         if (mAudioTrack != null) {
             mAudioTrack.release();
             mAudioTrack = null;
@@ -399,5 +461,62 @@ public class MainActivity extends AppCompatActivity {
         public AddRunnable(double data) {
             this.data = data;
         }
+    }
+
+    public double[] Read_Accesset(int length, String file_name) {
+        byte[] rbyte_fir = new byte[length * 8];
+        double[] rdouble_fir = new double[length];
+        InputStream fis = null;
+        try {
+            fis = this.getAssets().open(file_name);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        if (fis != null) {
+            try {
+                fis.read(rbyte_fir, 0, length * 8);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (fis != null) {
+
+            try {
+                fis.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        byte[] temp = new byte[8];
+        for (int i = 0; i < length; i++) {
+
+            for (int j = 0; j < 8; j++) {
+                temp[j] = rbyte_fir[i * 8 + j];
+            }
+            rdouble_fir[i] = bytesToDouble(temp);
+        }
+
+        double[] fir_result = new double[length];
+        System.arraycopy(rdouble_fir, 0, fir_result, 0, length);
+        return fir_result;
+    }
+
+
+    //字节到浮点转换
+    public static double bytesToDouble(byte[] readBuffer) {
+        return Double.longBitsToDouble((((long) readBuffer[7] << 56) +
+                        ((long) (readBuffer[6] & 255) << 48) +
+                        ((long) (readBuffer[5] & 255) << 40) +
+                        ((long) (readBuffer[4] & 255) << 32) +
+                        ((long) (readBuffer[3] & 255) << 24) +
+                        ((readBuffer[2] & 255) << 16) +
+                        ((readBuffer[1] & 255) << 8) +
+                        ((readBuffer[0] & 255) << 0))
+
+        );
     }
 }

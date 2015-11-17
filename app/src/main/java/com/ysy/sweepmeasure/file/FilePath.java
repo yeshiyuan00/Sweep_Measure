@@ -22,4 +22,8 @@ public class FilePath {
 
     public static final String BUFCPATH = Environment.getExternalStorageDirectory()
             + "/sweep/bufc.txt";
+    public static final String HINV0PATH = Environment.getExternalStorageDirectory()
+            + "/sweep/hinv0.txt";
+    public static final String IMPIPATH = Environment.getExternalStorageDirectory()
+            + "/sweep/Impi.txt";
 }
