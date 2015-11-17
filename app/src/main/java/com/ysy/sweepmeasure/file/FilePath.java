@@ -26,4 +26,6 @@ public class FilePath {
             + "/sweep/hinv0.txt";
     public static final String IMPIPATH = Environment.getExternalStorageDirectory()
             + "/sweep/Impi.txt";
+    public static final String FIRPATH = Environment.getExternalStorageDirectory()
+            + "/sweep/fir.txt";
 }

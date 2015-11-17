@@ -110,7 +110,7 @@ public class CalcuRunnable implements Runnable {
 
         //convs.convols(Ddeconv, Drecord, DBuffC, Ddeconv.length, Drecord.length);
         long time = System.currentTimeMillis();
-        convs.convols(Ddeconv, Drecord);
+        convs.convols(Ddeconv, Drecord,IMPD);
         Log.e("Test:", "sumtime=" + (System.currentTimeMillis() - time));
 
         if (fosBc != null) {
