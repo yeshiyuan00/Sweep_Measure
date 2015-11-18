@@ -31,7 +31,6 @@ public class Convs {
     }
 
     public void convols(double[] Ddeconv, double[] Drecord, double[] IMPD) {
-
         int Lrec = Drecord.length;
         int Lh = Ddeconv.length;
         int Li = Lrec + Lh - 1;
@@ -148,7 +147,6 @@ public class Convs {
                 e.printStackTrace();
             }
         }
-
     }
 
     private void InterpLinear(double[] x1, double[] y1, int L1, double[] x2, double[] y2, int L2) {

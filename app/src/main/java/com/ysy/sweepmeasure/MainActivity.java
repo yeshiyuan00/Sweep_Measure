@@ -17,10 +17,13 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.utils.ColorTemplate;
+import com.ysy.sweepmeasure.file.FilePath;
+import com.ysy.sweepmeasure.file.GlobalData;
 import com.ysy.sweepmeasure.helper.SettingHelper;
 import com.ysy.sweepmeasure.sweep.Sweep;
 import com.ysy.sweepmeasure.task.CalcuRunnable;
@@ -28,6 +31,7 @@ import com.ysy.sweepmeasure.task.GenerateTask;
 import com.ysy.sweepmeasure.task.PlayRunnable;
 import com.ysy.sweepmeasure.task.RecordRunnable;
 import com.ysy.sweepmeasure.task.RecordTask;
+import com.ysy.sweepmeasure.util.AppManager;
 import com.ysy.sweepmeasure.util.ByteUtil;
 
 import java.io.File;
@@ -41,7 +45,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
-    private Button btn_generate, btn_record, btn_calculate;
+    private Button btn_generate, btn_record, btn_calculate,btn_open_player;
     //private LineChart chart_sweep, chart_record;
     private AudioTrack mAudioTrack;
     private AudioRecord mAudioRecord;
@@ -59,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
     private final String HINV0PATH = Environment.getExternalStorageDirectory()
             + "/sweep/hinv0.txt";
     private static final String HINVMIC_NAME = "hinvmic.txt";
-    private static final String IMPD_NAME = "impd.txt";
+    private static final String IMPD_NAME = "hedsu.txt";
 
     private int fs, f1, f2, A;
     private double T;
@@ -88,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
         //initChart();
 
         readData();
+
     }
 
     private void readData() {
@@ -114,12 +119,19 @@ public class MainActivity extends AppCompatActivity {
         btn_generate.setOnClickListener(new BtnClickListener());
         btn_record.setOnClickListener(new BtnClickListener());
         btn_calculate.setOnClickListener(new BtnClickListener());
+        btn_open_player.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AppManager.doStartApplicationWithPackageName(MainActivity.this,"com.exp.ysy.wav_process_pks");
+            }
+        });
     }
 
     private void FindViewById() {
         btn_generate = (Button) findViewById(R.id.btn_generate);
         btn_record = (Button) findViewById(R.id.btn_record);
         btn_calculate = (Button) findViewById(R.id.btn_calculate);
+        btn_open_player = (Button) findViewById(R.id.btn_open_player);
 //        chart_sweep = (LineChart) findViewById(R.id.chart_sweep);
 //        chart_record = (LineChart) findViewById(R.id.chart_record);
     }
@@ -170,17 +182,68 @@ public class MainActivity extends AppCompatActivity {
                     //
                     break;
                 case R.id.btn_calculate:
-                    //recordRunnable.stopRecord();
-                    ProgressDialog dialog2 = new ProgressDialog(MainActivity.this);
-                    dialog2.setMessage(getResources().getString(R.string.Calculating));
-                    dialog2.setCanceledOnTouchOutside(false);
-                    dialog2.setCancelable(false);
-                    dialog2.show();
-                    impd = Read_Accesset(512, IMPD_NAME);
-                    scheduledThreadPool.schedule(new CalcuRunnable(dialog2,impd), 0, TimeUnit.MILLISECONDS);
+                    calulateFir();
                     break;
             }
         }
+    }
+
+    private void calulateFir() {
+
+        File file = new File(FilePath.RECORDPATH);
+        if (!file.exists()) {
+            Toast.makeText(MainActivity.this, R.string.please_record_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        init_params();
+        //recordRunnable.stopRecord();
+    }
+
+    private void init_params() {
+        View view = getLayoutInflater().inflate(R.layout.dialog_calparam, null);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        builder.setTitle(R.string.parameter_setting)
+                .setView(view);
+        final EditText edt_rang0 = (EditText) view.findViewById(R.id.edt_rang0);
+        final EditText edt_rang1 = (EditText) view.findViewById(R.id.edt_rang1);
+        final EditText edt_reg0 = (EditText) view.findViewById(R.id.edt_reg0);
+        final EditText edt_reg1 = (EditText) view.findViewById(R.id.edt_reg1);
+        final EditText edt_reg2 = (EditText) view.findViewById(R.id.edt_reg2);
+
+        edt_rang0.setText(SettingHelper.getSharedPreferences(MainActivity.this, "edt_rang0", 300.0) + "");
+        edt_rang1.setText(SettingHelper.getSharedPreferences(MainActivity.this, "edt_rang1", 16000.0) + "");
+        edt_reg0.setText(SettingHelper.getSharedPreferences(MainActivity.this, "edt_reg0", 40.0) + "");
+        edt_reg1.setText(SettingHelper.getSharedPreferences(MainActivity.this, "edt_reg1", 20.0) + "");
+        edt_reg2.setText(SettingHelper.getSharedPreferences(MainActivity.this, "edt_reg2", -3.0) + "");
+
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                GlobalData.range[0] = Double.valueOf(edt_rang0.getText().toString());
+                GlobalData.range[1] = Double.valueOf(edt_rang1.getText().toString());
+                GlobalData.reg[0] = Double.valueOf(edt_reg0.getText().toString());
+                GlobalData.reg[1] = Double.valueOf(edt_reg1.getText().toString());
+                GlobalData.reg[2] = Double.valueOf(edt_reg2.getText().toString());
+
+                SettingHelper.setEditor(MainActivity.this, "edt_rang0", GlobalData.range[0]);
+                SettingHelper.setEditor(MainActivity.this, "edt_rang1", GlobalData.range[1]);
+                SettingHelper.setEditor(MainActivity.this, "edt_reg0", GlobalData.reg[0]);
+                SettingHelper.setEditor(MainActivity.this, "edt_reg1", GlobalData.reg[1]);
+                SettingHelper.setEditor(MainActivity.this, "edt_reg2", GlobalData.reg[2]);
+
+                ProgressDialog dialog2 = new ProgressDialog(MainActivity.this);
+                dialog2.setMessage(getResources().getString(R.string.Calculating));
+                dialog2.setCanceledOnTouchOutside(false);
+                dialog2.setCancelable(false);
+                dialog2.show();
+                impd = Read_Accesset(512, IMPD_NAME);
+                scheduledThreadPool.schedule(new CalcuRunnable(dialog2, impd), 0, TimeUnit.MILLISECONDS);
+
+            }
+        });
+        builder.setNegativeButton("Cancel", null);
+        builder.show();
     }
 
 

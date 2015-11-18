@@ -44,6 +44,8 @@ public class CalcuRunnable implements Runnable {
 
     @Override
     public void run() {
+
+
         try {
             fisRe.read(record, 0, (int) fileRe.length());
             fisDc.read(deconv, 0, (int) fileDc.length());
