@@ -6,8 +6,7 @@ package com.ysy.sweepmeasure.file;
  * Time: 14:19
  */
 public class GlobalData {
-
-
+    
     public static final int Limpi = 512;
     public static final int Limpd = 512;
     public static final int Lhfir = 1024;
