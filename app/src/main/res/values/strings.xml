@@ -1,17 +1,23 @@
 <resources>
-    <string name="app_name">Sweep Measure</string>
+    <string name="app_name">Sweep Measure2</string>
 
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="generate_sweep">生成信号</string>
     <string name="record_start">开始录音</string>
-    <string name="calculate_start">开始计算</string>
+    <string name="calculate_impulse">计算脉冲</string>
+    <string name="calculate_filter">计算滤波器参数</string>
     <string name="open_player">打开播放器</string>
     <string name="parameter_setting">参数设置</string>
+    <string name="show_result">计算结果</string>
     <string name="please_setting">请设置参数</string>
     <string name="please_generate">请先生成扫频信号</string>
     <string name="please_record_first">请先进行录音</string>
+    <string name="please_calImpulse_first">请先计算脉冲</string>
     <string name="generating">正在生成信号...</string>
     <string name="Recording">正在录音...</string>
     <string name="Calculating">正在计算...</string>
+    <string name="AdjustCurve">调节目标曲线</string>
+    <string name="Adjustcoef">调节参数</string>
+    <string name="confirmCurve">确认导入</string>
 </resources>

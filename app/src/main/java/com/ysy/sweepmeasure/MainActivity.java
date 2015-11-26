@@ -12,6 +12,7 @@ import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -19,6 +20,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.ggec.graphicalfir.FIRCurve;
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.utils.ColorTemplate;
@@ -35,17 +37,19 @@ import com.ysy.sweepmeasure.util.AppManager;
 import com.ysy.sweepmeasure.util.ByteUtil;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
-    private Button btn_generate, btn_record, btn_calculate, btn_open_player;
+    private Button btn_generate, btn_record, btn_calculate_impulse, btn_calculate_filter, btn_open_player;
     //private LineChart chart_sweep, chart_record;
     private AudioTrack mAudioTrack;
     private AudioRecord mAudioRecord;
@@ -65,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String HINVMIC_NAME = "hinvmic.txt";
     private static final String IMPD_NAME = "hdesrblk_a.txt";
     private static final String WINBLK_NAME = "winblk.txt";
+
 
     private int fs, f1, f2, A;
     private double T;
@@ -119,7 +124,8 @@ public class MainActivity extends AppCompatActivity {
     private void SetListener() {
         btn_generate.setOnClickListener(new BtnClickListener());
         btn_record.setOnClickListener(new BtnClickListener());
-        btn_calculate.setOnClickListener(new BtnClickListener());
+        btn_calculate_impulse.setOnClickListener(new BtnClickListener());
+        btn_calculate_filter.setOnClickListener(new BtnClickListener());
         btn_open_player.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -131,7 +137,8 @@ public class MainActivity extends AppCompatActivity {
     private void FindViewById() {
         btn_generate = (Button) findViewById(R.id.btn_generate);
         btn_record = (Button) findViewById(R.id.btn_record);
-        btn_calculate = (Button) findViewById(R.id.btn_calculate);
+        btn_calculate_impulse = (Button) findViewById(R.id.btn_calculate_impulse);
+        btn_calculate_filter = (Button) findViewById(R.id.btn_calculate_filter);
         btn_open_player = (Button) findViewById(R.id.btn_open_player);
 //        chart_sweep = (LineChart) findViewById(R.id.chart_sweep);
 //        chart_record = (LineChart) findViewById(R.id.chart_record);
@@ -182,23 +189,239 @@ public class MainActivity extends AppCompatActivity {
                             FILEPATH, BuffSize, recordRunnable), 2, TimeUnit.SECONDS);
                     //
                     break;
-                case R.id.btn_calculate:
-                    calulateFir();
+                case R.id.btn_calculate_impulse:
+                    calulate_impulse();
+                    break;
+                case R.id.btn_calculate_filter:
+                    calulate_filter();
                     break;
             }
         }
     }
 
-    private void calulateFir() {
+    private void calulate_filter() {
+        File file = new File(FilePath.SRCDBPATH);
+        if (!file.exists()) {
+            Toast.makeText(MainActivity.this, R.string.please_calImpulse_first, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        View view = getLayoutInflater().inflate(R.layout.dialog_cal_filter, null);
+        AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        builder.setTitle(R.string.calculate_filter).setView(view);
+        FIRCurve firCurve = (FIRCurve) view.findViewById(R.id.id_goal_curve);
+        Button btn_adjust = (Button) view.findViewById(R.id.id_btn_adjust);
+        Button btn_confirm = (Button) view.findViewById(R.id.id_btn_confirm);
+
+        btn_adjust.setOnClickListener(new CurveBtnClickListener(firCurve));
+        btn_confirm.setOnClickListener(new CurveBtnClickListener(firCurve));
+
+        double[] srcdB = new double[513];
+        double[] delDb1 = new double[513];
+        double[] deldB0 = new double[513];
+        double[] realdB = new double[513];
+
+        getCurveData(srcdB, FilePath.SRCDBPATH);
+        getCurveData(delDb1, FilePath.DELDB1PATH);
+        deldB0 = Read_Accesset(513, FilePath.DELDB0_NAME);
+
+        for (int i = 0; i < 513; i++) {
+            realdB[i] = srcdB[i] + deldB0[i] + delDb1[i];
+            Log.e("Test:", "src[" + i + "]=" + srcdB[i] + "   real[" + i + "]=" + deldB0[i]);
+        }
+        firCurve.setSrcdB(srcdB);
+        firCurve.setRealdB(realdB);
+
+        builder.setPositiveButton("OK", null);
+        builder.setNegativeButton("Cancel", null);
+        builder.show();
+    }
+
+    private class CurveBtnClickListener implements View.OnClickListener {
+        private FIRCurve firCurve;
+
+        public CurveBtnClickListener(FIRCurve firCurve) {
+            this.firCurve = firCurve;
+        }
+
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()) {
+                case R.id.id_btn_adjust:
+                    View view = getLayoutInflater().inflate(R.layout.dialog_fircoef, null);
+                    AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                    builder.setTitle(R.string.Adjustcoef).setView(view);
+
+                    final EditText edt_fc1 = (EditText) view.findViewById(R.id.id_edt_fir_fc1);
+                    final EditText edt_fc2 = (EditText) view.findViewById(R.id.id_edt_fir_fc2);
+                    final EditText edt_fc3 = (EditText) view.findViewById(R.id.id_edt_fir_fc3);
+                    final EditText edt_fc4 = (EditText) view.findViewById(R.id.id_edt_fir_fc4);
+                    final EditText edt_fc5 = (EditText) view.findViewById(R.id.id_edt_fir_fc5);
+
+                    final EditText edt_fb1 = (EditText) view.findViewById(R.id.id_edt_fir_fb1);
+                    final EditText edt_fb2 = (EditText) view.findViewById(R.id.id_edt_fir_fb2);
+                    final EditText edt_fb3 = (EditText) view.findViewById(R.id.id_edt_fir_fb3);
+                    final EditText edt_fb4 = (EditText) view.findViewById(R.id.id_edt_fir_fb4);
+                    final EditText edt_fb5 = (EditText) view.findViewById(R.id.id_edt_fir_fb5);
+
+                    final EditText edt_g1 = (EditText) view.findViewById(R.id.id_edt_fir_g1);
+                    final EditText edt_g2 = (EditText) view.findViewById(R.id.id_edt_fir_g2);
+                    final EditText edt_g3 = (EditText) view.findViewById(R.id.id_edt_fir_g3);
+                    final EditText edt_g4 = (EditText) view.findViewById(R.id.id_edt_fir_g4);
+                    final EditText edt_g5 = (EditText) view.findViewById(R.id.id_edt_fir_g5);
+
+                    edt_fc1.setText(MyApplication.fir_fc1 + "");
+                    edt_fc2.setText(MyApplication.fir_fc2 + "");
+                    edt_fc3.setText(MyApplication.fir_fc3 + "");
+                    edt_fc4.setText(MyApplication.fir_fc4 + "");
+                    edt_fc5.setText(MyApplication.fir_fc5 + "");
+
+                    edt_fb1.setText(MyApplication.fir_fb1 + "");
+                    edt_fb2.setText(MyApplication.fir_fb2 + "");
+                    edt_fb3.setText(MyApplication.fir_fb3 + "");
+                    edt_fb4.setText(MyApplication.fir_fb4 + "");
+                    edt_fb5.setText(MyApplication.fir_fb5 + "");
+
+                    edt_g1.setText(MyApplication.fir_g1 + "");
+                    edt_g2.setText(MyApplication.fir_g2 + "");
+                    edt_g3.setText(MyApplication.fir_g3 + "");
+                    edt_g4.setText(MyApplication.fir_g4 + "");
+                    edt_g5.setText(MyApplication.fir_g5 + "");
+                    builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+
+                        }
+                    });
+                    builder.setNegativeButton("Cancel", null);
+                    builder.show();
+                    break;
+                case R.id.id_btn_confirm:
+
+                    break;
+            }
+
+        }
+    }
+
+
+    private void getCurveData(double[] srcdB, String filePath) {
+        File file = new File(filePath);
+        if (file == null || file.length() != srcdB.length * 8) {
+            Arrays.fill(srcdB, 0.0);
+            return;
+        }
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream(file);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        byte[] src_temp = new byte[srcdB.length * 8];
+        if (fis != null) {
+            try {
+                fis.read(src_temp, 0, src_temp.length);
+                byte[] byte_temp = new byte[8];
+                for (int i = 0; i < src_temp.length; i = i + 8) {
+                    for (int j = 0; j < 8; j++) {
+                        byte_temp[j] = src_temp[j + i];
+                    }
+                    srcdB[i / 8] = ByteUtil.bytesToDouble(byte_temp);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (fis != null) {
+            try {
+                fis.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+    }
+
+    private void calulate_impulse() {
 
         File file = new File(FilePath.RECORDPATH);
         if (!file.exists()) {
             Toast.makeText(MainActivity.this, R.string.please_record_first, Toast.LENGTH_SHORT).show();
             return;
         }
+        File fileDc = new File(FilePath.HINV0PATH);
+        File fileRe = new File(FilePath.RECORDPATH);
 
-        init_params();
+        if ((!fileDc.exists()) || (!fileRe.exists())
+                || (fileDc.length() <= 0) || (fileRe.length() <= 0)) {
+            Toast.makeText(MainActivity.this, R.string.please_generate, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // init_params();
         //recordRunnable.stopRecord();
+        ProgressDialog dialog2 = new ProgressDialog(MainActivity.this);
+        dialog2.setMessage(getResources().getString(R.string.Calculating));
+        dialog2.setCanceledOnTouchOutside(false);
+        dialog2.setCancelable(false);
+        dialog2.setOnDismissListener(new DialogInterface.OnDismissListener() {
+            @Override
+            public void onDismiss(DialogInterface dialog) {
+                showCalculateResult();
+            }
+        });
+        dialog2.show();
+        impd = Read_Accesset(512, IMPD_NAME);
+        winblk = Read_Accesset(512, WINBLK_NAME);
+        scheduledThreadPool.schedule(new CalcuRunnable(dialog2, impd, winblk), 0, TimeUnit.MILLISECONDS);
+    }
+
+    private void showCalculateResult() {
+        View view = getLayoutInflater().inflate(R.layout.dialog_cal_result, null);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+        builder.setTitle(R.string.show_result)
+                .setView(view);
+
+        builder.setPositiveButton("ok", null);
+        FIRCurve firCurve = (FIRCurve) view.findViewById(R.id.id_result_curve);
+
+        firCurve.setDrawReal(false);
+        double[] srcdB = new double[513];
+        File file = new File(FilePath.SRCDBPATH);
+        if (file == null || file.length() != 4104) return;
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream(file);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        byte[] src_temp = new byte[srcdB.length * 8];
+        if (fis != null) {
+            try {
+                fis.read(src_temp, 0, src_temp.length);
+                byte[] byte_temp = new byte[8];
+                for (int i = 0; i < src_temp.length; i = i + 8) {
+                    for (int j = 0; j < 8; j++) {
+                        byte_temp[j] = src_temp[j + i];
+                    }
+                    srcdB[i / 8] = ByteUtil.bytesToDouble(byte_temp);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (fis != null) {
+            try {
+                fis.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        firCurve.setSrcdB(srcdB);
+        builder.show();
+
     }
 
     private void init_params() {

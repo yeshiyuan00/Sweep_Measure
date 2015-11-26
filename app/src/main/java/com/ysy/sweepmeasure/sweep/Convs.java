@@ -31,6 +31,7 @@ public class Convs {
     }
 
     public void convols(double[] Ddeconv, double[] Drecord, double[] IMPD, double[] WINBLK) {
+
         int Lrec = Drecord.length;
         int Lh = Ddeconv.length;
         int Li = Lrec + Lh - 1;
@@ -45,76 +46,32 @@ public class Convs {
             ind = Math.abs(impt[i]) > imax ? i : ind;
             imax = Math.abs(impt[i]) > imax ? Math.abs(impt[i]) : imax;
         }
-        Mi = imax;
+        //Mi = imax;
 
         for (i = 0; i < GlobalData.Limpi; i++) {
-            impo[i] = impt[i + ind - GlobalData.Limpi / 2] * WINBLK[i] / imax;
+
+            impo[i] = impt[i + ind - GlobalData.Limpi / 2] * WINBLK[i];
         }
 
-        int fn = GlobalData.NFFT / 2 + 1;
-        int len = GlobalData.NFFT / 2;
-        i = 0;
-        ind = 0;
-        double temp, homax = 0;
-        double[] fsample = new double[fn];
-        double[] dBsample = new double[fn];
-        double[] hit = new double[GlobalData.NFFT];
-        double[] hdest = new double[GlobalData.NFFT];
-        double[] hot = new double[GlobalData.NFFT];
-        Arrays.fill(hit, 0.0);
-        Arrays.fill(hdest, 0.0);
-        if (GlobalData.range[0] > 0 && GlobalData.range[1] < GlobalData.fs / 2) {
-            double fEdge[] = new double[]{0.0, GlobalData.range[0] * 2.0 / 3.0,
-                    GlobalData.range[0], GlobalData.range[1],
-                    GlobalData.range[1] * 4.0 / 3.0, GlobalData.fs / 2.0};
-            double dBEdge[] = new double[]{GlobalData.reg[0], GlobalData.reg[0], GlobalData.reg[1],
-                    GlobalData.reg[1], GlobalData.reg[2], GlobalData.reg[2]};
-            if (fEdge[4] > fEdge[5]) fEdge[4] = GlobalData.range[1] + 1.0;
-            for (i = 0; i < fn; i++) {
-                fsample[i] = GlobalData.fs * i / GlobalData.NFFT;
-            }
-            InterpLinear(fEdge, dBEdge, 6, fsample, dBsample, fn);
-            for (i = 0; i < fn; i++) {
-                dBsample[i] = Math.pow(10.0, -dBsample[i] / 20.0);
-            }
-        } else {
-            Arrays.fill(dBsample, 0.0);
+        int NFFT = 1024;
+        double[] temp = new double[1024];
+        double[] srcdB = new double[513];
+        for (i = 0; i < 512; i++) {
+            temp[i] = impo[i];
+        }
+        for (i = 512; i < 1024; i++) {
+            temp[i] = 0.0;
         }
 
-        System.arraycopy(impo, 0, hit, 0, impo.length);
-        System.arraycopy(IMPD, 0, hdest, 0, IMPD.length);
-        FFT.rfft(hit, GlobalData.NFFT);
-        FFT.rfft(hdest, GlobalData.NFFT);
-        hot[0] = hit[0] * hdest[0] / (hit[0] * hit[0] + dBsample[0] * dBsample[0]);
-        hot[len] = hit[len] * hdest[len] / (hit[len] * hit[len] + dBsample[len] * dBsample[len]);
-        for (i = 1; i < len; i++) {
-            temp = hit[i] * hit[i] + hit[GlobalData.NFFT - i] * hit[GlobalData.NFFT - i]
-                    + dBsample[i] * dBsample[i];
-            hot[i] = (hdest[i] * hit[i]
-                    + hdest[GlobalData.NFFT - i] * hit[GlobalData.NFFT - i]) / temp;
-            hot[GlobalData.NFFT - i] = (hdest[GlobalData.NFFT - i] * hit[i]
-                    - hdest[i] * hit[GlobalData.NFFT - i]) / temp;
-        }
-        FFT.irfft(hot, GlobalData.NFFT);
-        for (i = 0; i < len; i++) {
-            temp = hot[i + len] * GlobalData.Md / Mi;
-            hot[i + len] = hot[i] * GlobalData.Md / Mi;
-            hot[i] = temp;
-        }
-        for (i = 0; i < GlobalData.NFFT; i++) {
-            ind = Math.abs(hot[i]) > homax ? i : ind;
-            homax = Math.abs(hot[i]) > homax ? Math.abs(hot[i]) : homax;
+        FFT.rfft(temp, NFFT);
+
+        srcdB[0] = 10.0 * Math.log10(temp[0] * temp[0]);
+        srcdB[512] = 10.0 * Math.log10(temp[512] * temp[512]);
+        for (i = 1; i < 512; i++) {
+            srcdB[i] = 10.0 * Math.log10(temp[i] * temp[i] + temp[1024 - i] * temp[1024 - i]);
         }
 
-        for (i = 0; i < GlobalData.NFFT; i++) {
-            hot[i] = hot[i] / homax;
-        }
-
-        double[] fircoef = new double[128];
-        System.arraycopy(hot, ind - 128 / 2, fircoef, 0, 128);
-
-
-        File fileBc = new File(FilePath.FIRPATH);
+        File fileBc = new File(FilePath.SRCDBPATH);
         FileOutputStream fosBc = null;
 
         if (fosBc != null) {
@@ -131,15 +88,15 @@ public class Convs {
             e.printStackTrace();
         }
 
-        byte[] Byte_fir = new byte[128 * 8];
-        for (i = 0; i < 128; i++) {
-            byte[] temp1 = new byte[8];
-            temp1 = ByteUtil.doubleToBytes(fircoef[i]);
-            System.arraycopy(temp1, 0, Byte_fir, i * 8, 8);
+        byte[] Byte_src = new byte[513 * 8];
+        byte[] temp1 = new byte[8];
+        for (i = 0; i < 513; i++) {
+            temp1 = ByteUtil.doubleToBytes(srcdB[i]);
+            System.arraycopy(temp1, 0, Byte_src, i * 8, 8);
         }
 
         try {
-            fosBc.write(Byte_fir, 0, Byte_fir.length);
+            fosBc.write(Byte_src, 0, Byte_src.length);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -167,7 +124,7 @@ public class Convs {
         int Lh = h.length;
         int Lx = rect.length;
         int Ly = Lh + Lx - 1;
-        int NFFT = (int) Math.pow(2., Math.ceil(Math.log((double) Ly) / Math.log(2.0)));
+        int NFFT = (int) Math.pow(2.0, Math.ceil(Math.log((double) Ly) / Math.log(2.0)));
         int len2 = NFFT / 2;
         double temp;
         double[] ht = new double[NFFT];

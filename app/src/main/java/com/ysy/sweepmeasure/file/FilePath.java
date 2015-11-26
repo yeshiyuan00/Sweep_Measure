@@ -28,4 +28,12 @@ public class FilePath {
             + "/sweep/Impi.txt";
     public static final String FIRPATH = Environment.getExternalStorageDirectory()
             + "/sweep/fir.txt";
+
+    public static final String SRCDBPATH = Environment.getExternalStorageDirectory()
+            + "/sweep/srcdB.txt";
+
+    public static final String DELDB1PATH = Environment.getExternalStorageDirectory()
+            + "/sweep/deldB.txt";
+
+    public static final String DELDB0_NAME = "deldB0.txt";  //目标调节
 }
