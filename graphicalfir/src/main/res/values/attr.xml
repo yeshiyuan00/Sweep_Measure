@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="gridlinecolor" format="color" />
+    <attr name="textcolor" format="color" />
+    <attr name="indexTextSize" format="dimension" />
+    <attr name="originCurveColor" format="color" />
+    <attr name="realCurveColor" format="color" />
+    <attr name="backgroundColor" format="color" />
+
+    <declare-styleable name="FIRCurve">
+        <attr name="gridlinecolor" />
+        <attr name="textcolor" />
+        <attr name="indexTextSize" />
+        <attr name="originCurveColor" />
+        <attr name="realCurveColor" />
+        <attr name="backgroundColor" />
+    </declare-styleable>
+</resources>
