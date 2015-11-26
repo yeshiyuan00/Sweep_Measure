@@ -30,7 +30,7 @@ public class Convs {
         this.dataListener = dataListener;
     }
 
-    public void convols(double[] Ddeconv, double[] Drecord, double[] IMPD) {
+    public void convols(double[] Ddeconv, double[] Drecord, double[] IMPD, double[] WINBLK) {
         int Lrec = Drecord.length;
         int Lh = Ddeconv.length;
         int Li = Lrec + Lh - 1;
@@ -48,7 +48,7 @@ public class Convs {
         Mi = imax;
 
         for (i = 0; i < GlobalData.Limpi; i++) {
-            impo[i] = impt[i + ind - GlobalData.Limpi / 4] / imax;
+            impo[i] = impt[i + ind - GlobalData.Limpi / 2] * WINBLK[i] / imax;
         }
 
         int fn = GlobalData.NFFT / 2 + 1;
@@ -106,8 +106,12 @@ public class Convs {
             homax = Math.abs(hot[i]) > homax ? Math.abs(hot[i]) : homax;
         }
 
+        for (i = 0; i < GlobalData.NFFT; i++) {
+            hot[i] = hot[i] / homax;
+        }
+
         double[] fircoef = new double[128];
-        System.arraycopy(hot, ind - 128 / 4, fircoef, 0, 128);
+        System.arraycopy(hot, ind - 128 / 2, fircoef, 0, 128);
 
 
         File fileBc = new File(FilePath.FIRPATH);

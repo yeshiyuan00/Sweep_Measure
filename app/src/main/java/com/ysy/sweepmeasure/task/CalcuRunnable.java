@@ -30,15 +30,17 @@ public class CalcuRunnable implements Runnable {
     private double[] Ddeconv = null;
     private double[] DBuffC = null;
     private double[] IMPD = null;
+    private double[] WINBLK = null;
 
     private Convs convs;
     private ProgressDialog dialog;
 
-    public CalcuRunnable(ProgressDialog dialog, double[] IMPD) {
+    public CalcuRunnable(ProgressDialog dialog, double[] IMPD, double[] WINBLK) {
         initFis();
         convs = new Convs();
         this.dialog = dialog;
         this.IMPD = IMPD;
+        this.WINBLK = WINBLK;
     }
 
 
@@ -112,7 +114,7 @@ public class CalcuRunnable implements Runnable {
 
         //convs.convols(Ddeconv, Drecord, DBuffC, Ddeconv.length, Drecord.length);
         long time = System.currentTimeMillis();
-        convs.convols(Ddeconv, Drecord,IMPD);
+        convs.convols(Ddeconv, Drecord, IMPD,WINBLK);
         Log.e("Test:", "sumtime=" + (System.currentTimeMillis() - time));
 
         if (fosBc != null) {

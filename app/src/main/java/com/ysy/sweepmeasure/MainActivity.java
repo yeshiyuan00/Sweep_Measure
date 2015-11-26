@@ -45,7 +45,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
-    private Button btn_generate, btn_record, btn_calculate,btn_open_player;
+    private Button btn_generate, btn_record, btn_calculate, btn_open_player;
     //private LineChart chart_sweep, chart_record;
     private AudioTrack mAudioTrack;
     private AudioRecord mAudioRecord;
@@ -63,7 +63,8 @@ public class MainActivity extends AppCompatActivity {
     private final String HINV0PATH = Environment.getExternalStorageDirectory()
             + "/sweep/hinv0.txt";
     private static final String HINVMIC_NAME = "hinvmic.txt";
-    private static final String IMPD_NAME = "hedsu.txt";
+    private static final String IMPD_NAME = "hdesrblk_a.txt";
+    private static final String WINBLK_NAME = "winblk.txt";
 
     private int fs, f1, f2, A;
     private double T;
@@ -76,7 +77,7 @@ public class MainActivity extends AppCompatActivity {
     FileOutputStream foshiv = null;  //存储hinv0
 
     private final int CLEARVALUE = 0x01;
-    private double[] impd;
+    private double[] impd, winblk;
 
 
     @Override
@@ -106,7 +107,7 @@ public class MainActivity extends AppCompatActivity {
                 AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
         PlayBuff = new short[BuffSize / 4];
         mAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, fs,
-                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT,
                 BuffSize, AudioTrack.MODE_STREAM);
         recBuffSize = AudioRecord.getMinBufferSize(fs, AudioFormat.CHANNEL_IN_MONO,
                 AudioFormat.ENCODING_PCM_16BIT);
@@ -122,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
         btn_open_player.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AppManager.doStartApplicationWithPackageName(MainActivity.this,"com.exp.ysy.wav_process_pks");
+                AppManager.doStartApplicationWithPackageName(MainActivity.this, "com.exp.ysy.wav_process_pks");
             }
         });
     }
@@ -238,7 +239,8 @@ public class MainActivity extends AppCompatActivity {
                 dialog2.setCancelable(false);
                 dialog2.show();
                 impd = Read_Accesset(512, IMPD_NAME);
-                scheduledThreadPool.schedule(new CalcuRunnable(dialog2, impd), 0, TimeUnit.MILLISECONDS);
+                winblk = Read_Accesset(512, WINBLK_NAME);
+                scheduledThreadPool.schedule(new CalcuRunnable(dialog2, impd, winblk), 0, TimeUnit.MILLISECONDS);
 
             }
         });
@@ -395,7 +397,7 @@ public class MainActivity extends AppCompatActivity {
 
                 mAudioTrack = null;
                 mAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, fs,
-                        AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                        AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT,
                         BuffSize, AudioTrack.MODE_STREAM);
 
                 mAudioRecord = null;
@@ -411,13 +413,15 @@ public class MainActivity extends AppCompatActivity {
 
                         //System.out.println("data[" + (j) + "]=" + data);
                         byte[] temp = new byte[2];
-                        byte[] data_byte = new byte[data.length * 2];
+                        byte[] data_byte = new byte[data.length * 4];
                         for (int i = 0, lh = data.length; i < lh; i++) {
                             short temp1 = (short) data[i];
                             temp[0] = (byte) (temp1 >> 8);
                             temp[1] = (byte) (temp1);
-                            data_byte[2 * i] = temp[0];
-                            data_byte[2 * i + 1] = temp[1];
+                            data_byte[4 * i] = temp[0];
+                            data_byte[4 * i + 1] = temp[1];
+                            data_byte[4 * i + 2] = temp[0];
+                            data_byte[4 * i + 3] = temp[1];
                         }
 
                         if (fos != null) {
