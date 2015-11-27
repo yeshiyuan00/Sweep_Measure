@@ -371,7 +371,7 @@ public class MainActivity extends AppCompatActivity {
                     getCurveData(srcdB, FilePath.SRCDBPATH);
                     deldB0 = Read_Accesset(513, FilePath.DELDB0_NAME);
                     for (int i = 0; i < 513; i++) {
-                        deldB[i] = deldB0[i] + deldB1[i];
+                        deldB[i] =  deldB0[i] +deldB1[i];
                     }
                     fircoef = DBTool.CompensationFIR(srcdB, deldB);
                     writeFileToDisk(FilePath.FIR1PATH, fircoef);

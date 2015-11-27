@@ -116,7 +116,7 @@ public class DBTool {
             hinvm = Math.abs(temp[i]) > hinvm ? Math.abs(temp[i]) : hinvm;
         }
         for (i = 0; i < 128; i++) {
-            hinv[i] = temp[i + indm - 32];
+            hinv[i] = temp[i + indm - 64] / hinvm;
         }
         return hinv;
     }
