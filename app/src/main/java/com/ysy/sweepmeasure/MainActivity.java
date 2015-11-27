@@ -20,6 +20,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.ggec.graphicalfir.DBTool;
 import com.ggec.graphicalfir.FIRCurve;
 import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.LineDataSet;
@@ -83,6 +84,8 @@ public class MainActivity extends AppCompatActivity {
 
     private final int CLEARVALUE = 0x01;
     private double[] impd, winblk;
+    private double[] deldB = new double[513];
+    private double[] deldB1 = new double[513];
 
 
     @Override
@@ -96,7 +99,7 @@ public class MainActivity extends AppCompatActivity {
         FindViewById();
         SetListener();
         //initChart();
-
+        getCurveData(deldB1, FilePath.DELDB1PATH);
         readData();
 
     }
@@ -232,16 +235,33 @@ public class MainActivity extends AppCompatActivity {
         firCurve.setSrcdB(srcdB);
         firCurve.setRealdB(realdB);
 
-        builder.setPositiveButton("OK", null);
-        builder.setNegativeButton("Cancel", null);
+        builder.setPositiveButton("BACK", null);
         builder.show();
     }
 
     private class CurveBtnClickListener implements View.OnClickListener {
         private FIRCurve firCurve;
+        double[] filterdB1;
+        double[] filterdB2;
+        double[] filterdB3;
+        double[] filterdB4;
+        double[] filterdB5;
+        double[] srcdB;
+
+        double[] deldB0;
+        double[] realdB;
 
         public CurveBtnClickListener(FIRCurve firCurve) {
             this.firCurve = firCurve;
+            filterdB1 = new double[513];
+            filterdB2 = new double[513];
+            filterdB3 = new double[513];
+            filterdB4 = new double[513];
+            filterdB5 = new double[513];
+            srcdB = new double[513];
+
+            deldB0 = new double[513];
+            realdB = new double[513];
         }
 
         @Override
@@ -251,6 +271,7 @@ public class MainActivity extends AppCompatActivity {
                     View view = getLayoutInflater().inflate(R.layout.dialog_fircoef, null);
                     AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
                     builder.setTitle(R.string.Adjustcoef).setView(view);
+
 
                     final EditText edt_fc1 = (EditText) view.findViewById(R.id.id_edt_fir_fc1);
                     final EditText edt_fc2 = (EditText) view.findViewById(R.id.id_edt_fir_fc2);
@@ -290,6 +311,47 @@ public class MainActivity extends AppCompatActivity {
                     builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
+                            MyApplication.fir_fc1 = Double.valueOf(edt_fc1.getText().toString());
+                            MyApplication.fir_fc2 = Double.valueOf(edt_fc2.getText().toString());
+                            MyApplication.fir_fc3 = Double.valueOf(edt_fc3.getText().toString());
+                            MyApplication.fir_fc4 = Double.valueOf(edt_fc4.getText().toString());
+                            MyApplication.fir_fc5 = Double.valueOf(edt_fc5.getText().toString());
+
+                            MyApplication.fir_fb1 = Double.valueOf(edt_fb1.getText().toString());
+                            MyApplication.fir_fb2 = Double.valueOf(edt_fb2.getText().toString());
+                            MyApplication.fir_fb3 = Double.valueOf(edt_fb3.getText().toString());
+                            MyApplication.fir_fb4 = Double.valueOf(edt_fb4.getText().toString());
+                            MyApplication.fir_fb5 = Double.valueOf(edt_fb5.getText().toString());
+
+                            MyApplication.fir_g1 = Double.valueOf(edt_g1.getText().toString());
+                            MyApplication.fir_g2 = Double.valueOf(edt_g2.getText().toString());
+                            MyApplication.fir_g3 = Double.valueOf(edt_g3.getText().toString());
+                            MyApplication.fir_g4 = Double.valueOf(edt_g4.getText().toString());
+                            MyApplication.fir_g5 = Double.valueOf(edt_g5.getText().toString());
+
+                            filterdB1 = DBTool.FilterFreq(MyApplication.fir_fc1,
+                                    MyApplication.fir_fb1, MyApplication.fir_g1);
+                            filterdB2 = DBTool.FilterFreq(MyApplication.fir_fc2,
+                                    MyApplication.fir_fb2, MyApplication.fir_g2);
+                            filterdB3 = DBTool.FilterFreq(MyApplication.fir_fc3,
+                                    MyApplication.fir_fb3, MyApplication.fir_g3);
+                            filterdB4 = DBTool.FilterFreq(MyApplication.fir_fc4,
+                                    MyApplication.fir_fb4, MyApplication.fir_g4);
+                            filterdB5 = DBTool.FilterFreq(MyApplication.fir_fc5,
+                                    MyApplication.fir_fb5, MyApplication.fir_g5);
+
+                            getCurveData(srcdB, FilePath.SRCDBPATH);
+                            deldB0 = Read_Accesset(513, FilePath.DELDB0_NAME);
+
+                            for (int i = 0; i < 513; i++) {
+                                deldB1[i] = filterdB1[i] + filterdB2[i]
+                                        + filterdB3[i] + filterdB4[i] + filterdB5[i];
+                                deldB[i] = deldB0[i] + deldB1[i];
+                                realdB[i] = deldB[i] + srcdB[i];
+                            }
+
+                            firCurve.setSrcdB(srcdB);
+                            firCurve.setRealdB(realdB);
 
                         }
                     });
@@ -297,10 +359,66 @@ public class MainActivity extends AppCompatActivity {
                     builder.show();
                     break;
                 case R.id.id_btn_confirm:
+                    ProgressDialog dialog = new ProgressDialog(MainActivity.this);
+                    dialog.setCancelable(false);
+                    dialog.setCanceledOnTouchOutside(false);
+                    dialog.show();
+                    MyApplication.getInstance().writeFirCorFromDatabase(MainActivity.this);
 
+                    writeFileToDisk(FilePath.DELDB1PATH, deldB1);
+
+                    double[] fircoef = new double[128];
+                    getCurveData(srcdB, FilePath.SRCDBPATH);
+                    deldB0 = Read_Accesset(513, FilePath.DELDB0_NAME);
+                    for (int i = 0; i < 513; i++) {
+                        deldB[i] = deldB0[i] + deldB1[i];
+                    }
+                    fircoef = DBTool.CompensationFIR(srcdB, deldB);
+                    writeFileToDisk(FilePath.FIR1PATH, fircoef);
+                    dialog.dismiss();
                     break;
             }
 
+        }
+    }
+
+    private void writeFileToDisk(String path, double[] data) {
+
+        File file = new File(path);
+        if (file.exists()) {
+            file.delete();
+        }
+        FileOutputStream fos = null;
+
+        try {
+            fos = new FileOutputStream(file);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        byte[] byte_del1 = new byte[data.length * 8];
+        byte[] temp = new byte[8];
+
+        for (int i = 0; i < data.length; i++) {
+            temp = ByteUtil.doubleToBytes(data[i]);
+            for (int j = 0; j < 8; j++) {
+                byte_del1[i * 8 + j] = temp[j];
+            }
+        }
+
+        if (fos != null) {
+            try {
+                fos.write(byte_del1, 0, byte_del1.length);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (fos != null) {
+            try {
+                fos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

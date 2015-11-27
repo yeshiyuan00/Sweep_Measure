@@ -20,6 +20,15 @@ public class MyApplication extends Application {
     public static double fir_fb1, fir_fb2, fir_fb3, fir_fb4, fir_fb5;
     public static double fir_g1, fir_g2, fir_g3, fir_g4, fir_g5;
 
+    private static MyApplication Instance;
+
+    public static MyApplication getInstance() {
+        if (Instance == null) {
+            Instance = new MyApplication();
+        }
+        return Instance;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -27,6 +36,7 @@ public class MyApplication extends Application {
         if (!dir.exists()) {
             dir.mkdirs();
         }
+        readFirCorFromDatabase();
     }
 
     public void writeFirCorFromDatabase(Activity activity) {
@@ -49,7 +59,7 @@ public class MyApplication extends Application {
         SettingHelper.setEditor(activity, "fir_g5", fir_g5);
     }
 
-    private void readFirCorFromDatabase() {
+    public void readFirCorFromDatabase() {
         fir_fc1 = SettingHelper.getSharedPreferences(this, "fir_fc1", 500.0);
         fir_fc2 = SettingHelper.getSharedPreferences(this, "fir_fc2", 1000.0);
         fir_fc3 = SettingHelper.getSharedPreferences(this, "fir_fc3", 3000.0);
